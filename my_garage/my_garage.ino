@@ -33,19 +33,19 @@ int states [RELAY_VENT + 1] = {HIGH, HIGH, HIGH, HIGH};
 #define SD_CS 10
 String iniFile = "settings.ini";
 String logFile;
+// variables will change:
+int buttonVentState = 0;         // variable for reading the pushbutton status
+int buttonHotterState = 0;         // variable for reading the pushbutton status
+
 void setup()
 {
-  logFile = "data";
-  logFile += analogRead(0);
-  logFile += ".log";
   pinMode(RELAY_VENT, OUTPUT);
   pinMode(RELAY_HOT, OUTPUT);
-  
+
   Serial.begin(9600);
   while (!Serial) {
     ; // wait for serial port to connect. Needed for native USB port only
   }
-  Serial.println("Current log file is " + logFile);
   relayOn(RELAY_VENT);
   relayOn(RELAY_HOT);
   delay(1000);          // wait for sensor initialization
@@ -61,6 +61,10 @@ void setup()
     return;
   }
   Serial.println("initialization SD done.");
+  logFile = "data";
+  logFile += getCountFiles() ;
+  logFile += ".log";
+  Serial.println("Current log file is " + logFile);
   readSettings();
 }
 
@@ -77,41 +81,57 @@ void loop()
       checkTemper();
     }
   }
+} 
+int getCountFiles() {
+  File root = SD.open("/");
+  int counter = 0;
+  while (true) {
 
-}
-void readSettings(){
-    if (checkSettings()) {
-      File confFile = SD.open(iniFile);
-      Serial.println(iniFile + " : ");
-
-      humidity_on = readInt(confFile);
-      humidity_off = readInt(confFile);
-      String hum = String("humidity on ");
-      hum += humidity_on;
-      hum += " off ";
-      hum += humidity_off;
-      Serial.println(hum);
-
-      temper_on = readInt(confFile);
-      temper_off = readInt(confFile);
-      confFile.close();
-      String hot = String("hotter on ");
-      hot += temper_on;
-      hot += " off ";
-      hot += temper_off;
-      Serial.println(hot);
+    File entry =  root.openNextFile();
+    if (! entry) {
+      // no more files
+      break;
     }
+    counter += 1;
+    entry.close();
+  }
+  Serial.print("found files:");
+  Serial.println(counter);
+  return counter;
 }
-int readInt(File file){
+void readSettings() {
+  if (checkSettings()) {
+    File confFile = SD.open(iniFile);
+    Serial.println(iniFile + " : ");
+
+    humidity_on = readInt(confFile);
+    humidity_off = readInt(confFile);
+    String hum = String("humidity on ");
+    hum += humidity_on;
+    hum += " off ";
+    hum += humidity_off;
+    Serial.println(hum);
+
+    temper_on = readInt(confFile);
+    temper_off = readInt(confFile);
+    confFile.close();
+    String hot = String("hotter on ");
+    hot += temper_on;
+    hot += " off ";
+    hot += temper_off;
+    Serial.println(hot);
+  }
+}
+int readInt(File file) {
   int k = 0;
   int num2 = 0;
-  while(file.available()){
+  while (file.available()) {
     char s = file.read();
-    if(s >= 48 && s <= 57){
+    if (s >= 48 && s <= 57) {
       k++;
-      num2 = num2 * 10 + s-'0';
+      num2 = num2 * 10 + s - '0';
     }
-    else if(k > 0) {
+    else if (k > 0) {
       break;
     }
   }
@@ -123,15 +143,15 @@ int readInt(File file){
   return num2;
 }
 
-bool checkSettings(){
+bool checkSettings() {
   Serial.print(iniFile);
-  if (SD.exists(iniFile)) 
-       {
-       Serial.println(" file exists.");
-       return true;
-       } 
-   Serial.println(" file not exists.");
-   return false;
+  if (SD.exists(iniFile))
+  {
+    Serial.println(" file exists.");
+    return true;
+  }
+  Serial.println(" file not exists.");
+  return false;
 }
 void readTemp() {
   Serial.println("=================================");
