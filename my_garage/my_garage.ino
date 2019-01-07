@@ -34,27 +34,33 @@ int states [RELAY_VENT + 1] = {HIGH, HIGH, HIGH, HIGH};
 String iniFile = "settings.ini";
 String logFile;
 // variables will change:
-int buttonVentState = 0;         // variable for reading the pushbutton status
-int buttonHotterState = 0;         // variable for reading the pushbutton status
+int buttonVentState = LOW;         // variable for reading the pushbutton status
+int buttonHotterState = LOW;         // variable for reading the pushbutton status
+#define BUTTON_VENT  4         // pin for reading the pushbutton status
+#define BUTTON_HOTTER  5         // pin for reading the pushbutton status
+unsigned long time_pressed_vent = 0;
+unsigned long time_pressed_hotter = 0;
 
 void setup()
 {
   pinMode(RELAY_VENT, OUTPUT);
   pinMode(RELAY_HOT, OUTPUT);
-
+  // initialize the pushbutton pin as an input:
+  pinMode(BUTTON_VENT, INPUT);
+  pinMode(BUTTON_HOTTER, INPUT);
   Serial.begin(9600);
   while (!Serial) {
     ; // wait for serial port to connect. Needed for native USB port only
   }
-  relayOn(RELAY_VENT);
-  relayOn(RELAY_HOT);
+  ventOn();
+  hotterOn();
   delay(1000);          // wait for sensor initialization
 
   Serial.print("\n[memCheck]");
   Serial.println(freeRam());
 
-  relayOff(RELAY_VENT);
-  relayOff(RELAY_HOT);
+  ventOff();
+  hotterOff();
   pinMode(SD_CS, OUTPUT);
   if (!SD.begin(SD_CS)) {
     Serial.println("initialization SD failed!");
@@ -67,9 +73,11 @@ void setup()
   Serial.println("Current log file is " + logFile);
   readSettings();
 }
-
+#define DELAY_BEFORE_PRESS 2000 //2 sec
 void loop()
 {
+  ventButton();
+  hotterButton();
   // count 60 seconds
   if (millis() / 60000 != gettemp) {
     gettemp = millis() / 60000;
@@ -81,7 +89,53 @@ void loop()
       checkTemper();
     }
   }
-} 
+ }
+void ventButton(){
+    long dl = millis() -  time_pressed_vent;
+  if (dl > DELAY_BEFORE_PRESS || dl < 0) {
+    if (digitalRead(BUTTON_VENT) == HIGH) {
+      if (buttonVentState == LOW) {
+        buttonVentState = HIGH;
+        time_pressed_vent = millis() ;
+        ventOn();
+//        String timeStemp = String(millis()) + " : " + String(time_pressed_vent);
+//        Serial.println(timeStemp);
+        Serial.println("Vent clicked first time for ON");
+      }
+      else {
+        buttonVentState = LOW;
+        time_pressed_vent = millis();
+        ventOff();
+//        String timeStemp = String(millis()) + " : " + String(time_pressed_vent);
+//        Serial.println(timeStemp);
+        Serial.println("Vent clicked second time for OFF");
+      }
+    }
+  }
+}
+void hotterButton(){
+    long dl = millis() -  time_pressed_hotter;
+  if (dl > DELAY_BEFORE_PRESS || dl < 0) {
+    if (digitalRead(BUTTON_HOTTER) == HIGH) {
+      if (buttonHotterState == LOW) {
+        buttonHotterState = HIGH;
+        time_pressed_hotter = millis() ;
+        hotterOn();
+        String timeStemp = String(millis()) + " : " + String(time_pressed_hotter);
+        Serial.println(timeStemp);
+        Serial.println("Hotter clicked first time for ON");
+      }
+      else {
+        buttonHotterState = LOW;
+        time_pressed_hotter = millis();
+        hotterOff();
+        String timeStemp = String(millis()) + " : " + String(time_pressed_hotter);
+        Serial.println(timeStemp);
+        Serial.println("Hotter clicked second time for OFF");
+      }
+    }
+  }
+}
 int getCountFiles() {
   File root = SD.open("/");
   int counter = 0;
@@ -172,6 +226,46 @@ void readTemp() {
 
   // DHT11 sampling rate is 1HZ.
 }
+void ventOn(){
+  
+   if (states[RELAY_VENT] == HIGH || buttonVentState == HIGH) {
+    digitalWrite(RELAY_VENT, LOW);  //switch ON
+    states[RELAY_VENT] = LOW;
+    String msg = String("relay switch on ");
+    msg += RELAY_VENT;
+    log(msg);
+  }
+}
+void ventOff() {
+  if (states[RELAY_VENT] == LOW && buttonVentState == LOW) {
+    digitalWrite(RELAY_VENT, HIGH);  // switch OFF
+    states[RELAY_VENT] = HIGH;
+    String msg = String("relay switch off ");
+    msg += RELAY_VENT;
+    log(msg);
+  }
+}
+
+void hotterOn(){
+  
+   if (states[RELAY_HOT] == HIGH || buttonVentState == HIGH) {
+    digitalWrite(RELAY_HOT, LOW);  //switch ON
+    states[RELAY_HOT] = LOW;
+    String msg = String("relay switch on ");
+    msg += RELAY_HOT;
+    log(msg);
+  }
+}
+void hotterOff() {
+  if (states[RELAY_HOT] == LOW && buttonVentState == LOW) {
+    digitalWrite(RELAY_HOT, HIGH);  // switch OFF
+    states[RELAY_HOT] = HIGH;
+    String msg = String("relay switch off ");
+    msg += RELAY_HOT;
+    log(msg);
+  }
+}
+/*
 void relayOn(int relay) {
   if (states[relay] != LOW) {
     digitalWrite(relay, LOW);  //switch ON
@@ -191,7 +285,7 @@ void relayOff(int relay) {
     log(msg);
   }
 }
-
+*/
 void log(String msg) {
   File myFile = SD.open(logFile, FILE_WRITE);
   String record = ""; //get_time();
@@ -204,20 +298,20 @@ void log(String msg) {
 void checkHumidity() {
   int currentValue = getHumidity();
   if (currentValue >= humidity_on) {
-    relayOn(RELAY_VENT);
+    ventOn();
   }
   if (currentValue <= humidity_off) {
-    relayOff(RELAY_VENT);
+    ventOff();
   }
 }
 
 void checkTemper() {
   int currentValue = getTemper();
   if (currentValue <= temper_on) {
-    relayOn(RELAY_HOT);
+    hotterOn();
   }
   if (currentValue >= temper_off) {
-    relayOff(RELAY_HOT);
+    hotterOff();
   }
 }
 
