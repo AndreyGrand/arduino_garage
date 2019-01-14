@@ -46,21 +46,18 @@ void setup()
   pinMode(RELAY_VENT, OUTPUT);
   pinMode(RELAY_HOT, OUTPUT);
   // initialize the pushbutton pin as an input:
-  pinMode(BUTTON_VENT, INPUT);
-  pinMode(BUTTON_HOTTER, INPUT);
+  pinMode(BUTTON_VENT, INPUT_PULLUP);
+  pinMode(BUTTON_HOTTER, INPUT_PULLUP);
   Serial.begin(9600);
   while (!Serial) {
     ; // wait for serial port to connect. Needed for native USB port only
   }
-  ventOn();
-  hotterOn();
   delay(1000);          // wait for sensor initialization
 
   Serial.print("\n[memCheck]");
   Serial.println(freeRam());
 
-  ventOff();
-  hotterOff();
+  readTemp();
   pinMode(SD_CS, OUTPUT);
   if (!SD.begin(SD_CS)) {
     Serial.println("initialization SD failed!");
@@ -89,48 +86,41 @@ void loop()
       checkTemper();
     }
   }
- }
-void ventButton(){
-    long dl = millis() -  time_pressed_vent;
+}
+void ventButton() {
+  //Serial.println(digitalRead(BUTTON_VENT));
+  long dl = millis() -  time_pressed_vent;
   if (dl > DELAY_BEFORE_PRESS || dl < 0) {
-    if (digitalRead(BUTTON_VENT) == HIGH) {
+    if (digitalRead(BUTTON_VENT) == LOW) {
       if (buttonVentState == LOW) {
         buttonVentState = HIGH;
         time_pressed_vent = millis() ;
         ventOn();
-//        String timeStemp = String(millis()) + " : " + String(time_pressed_vent);
-//        Serial.println(timeStemp);
         Serial.println("Vent clicked first time for ON");
       }
       else {
         buttonVentState = LOW;
         time_pressed_vent = millis();
         ventOff();
-//        String timeStemp = String(millis()) + " : " + String(time_pressed_vent);
-//        Serial.println(timeStemp);
         Serial.println("Vent clicked second time for OFF");
       }
     }
   }
 }
-void hotterButton(){
-    long dl = millis() -  time_pressed_hotter;
+void hotterButton() {
+  long dl = millis() -  time_pressed_hotter;
   if (dl > DELAY_BEFORE_PRESS || dl < 0) {
-    if (digitalRead(BUTTON_HOTTER) == HIGH) {
+    if (digitalRead(BUTTON_HOTTER) == LOW) {
       if (buttonHotterState == LOW) {
         buttonHotterState = HIGH;
         time_pressed_hotter = millis() ;
         hotterOn();
-        String timeStemp = String(millis()) + " : " + String(time_pressed_hotter);
-        Serial.println(timeStemp);
         Serial.println("Hotter clicked first time for ON");
       }
       else {
         buttonHotterState = LOW;
         time_pressed_hotter = millis();
         hotterOff();
-        String timeStemp = String(millis()) + " : " + String(time_pressed_hotter);
-        Serial.println(timeStemp);
         Serial.println("Hotter clicked second time for OFF");
       }
     }
@@ -226,9 +216,9 @@ void readTemp() {
 
   // DHT11 sampling rate is 1HZ.
 }
-void ventOn(){
-  
-   if (states[RELAY_VENT] == HIGH || buttonVentState == HIGH) {
+void ventOn() {
+
+  if (states[RELAY_VENT] == HIGH || buttonVentState == HIGH) {
     digitalWrite(RELAY_VENT, LOW);  //switch ON
     states[RELAY_VENT] = LOW;
     String msg = String("relay switch on ");
@@ -246,9 +236,9 @@ void ventOff() {
   }
 }
 
-void hotterOn(){
-  
-   if (states[RELAY_HOT] == HIGH || buttonVentState == HIGH) {
+void hotterOn() {
+
+  if (states[RELAY_HOT] == HIGH || buttonVentState == HIGH) {
     digitalWrite(RELAY_HOT, LOW);  //switch ON
     states[RELAY_HOT] = LOW;
     String msg = String("relay switch on ");
@@ -265,27 +255,7 @@ void hotterOff() {
     log(msg);
   }
 }
-/*
-void relayOn(int relay) {
-  if (states[relay] != LOW) {
-    digitalWrite(relay, LOW);  //switch ON
-    states[relay] = LOW;
-    String msg = String("relay switch on ");
-    msg += relay;
-    log(msg);
-  }
-}
 
-void relayOff(int relay) {
-  if (states[relay] != HIGH) {
-    digitalWrite(relay, HIGH);  // switch OFF
-    states[relay] = HIGH;
-    String msg = String("relay switch off ");
-    msg += relay;
-    log(msg);
-  }
-}
-*/
 void log(String msg) {
   File myFile = SD.open(logFile, FILE_WRITE);
   String record = ""; //get_time();
@@ -329,7 +299,7 @@ int getHumidity() {
   }
   String msg = String("humidity is ");
   //************** DEBUG ONLY
-  humidity = random(40) + 60;
+  //humidity = random(40) + 60;
   msg += humidity;
   log(msg);
   return humidity;
@@ -348,7 +318,7 @@ int getTemper() {
   }
   String msg = String("temperature is ");
   //************** DEBUG ONLY
-  temperature = random(10);
+  //temperature = random(10);
   msg += temperature;
   log(msg);
   return temperature;
